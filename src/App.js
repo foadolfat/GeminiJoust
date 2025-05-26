@@ -36,39 +36,19 @@ let app;
 let auth;
 let db;
 let effectiveFirebaseConfig; // To hold the config actually used for initialization
-let useProvidedConfig = false; // Flag to indicate if Canvas-provided config is used
 
-const providedFirebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-const providedInitialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 // Default/hardcoded Firebase configuration (e.g., for local development or when Canvas environment variables are not set)
 const defaultFirebaseConfig = {
-  apiKey: "AIzaSyA9ZuCrBDX0ohya-KGmLYprYxunlJqVYZ4", // This is the user's provided config
-  authDomain: "geminijoust.firebaseapp.com",
-  projectId: "geminijoust",
-  storageBucket: "geminijoust.appspot.com", // Corrected format from .firebasestorage.app
-  messagingSenderId: "700367220785",
-  appId: "1:700367220785:web:7d2b054ffcaa73f9f2e510",
-  measurementId: "G-7HZ9T7XNNC"
-};
+    apiKey: process.env.REACT_APP_API_KEY, // This is the user's provided config
+    authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+    projectId: process.env.REACT_APP_PROJECT_ID,
+    storageBucket: process.env.REACT_APP_STORAGE_BUCKET, // Corrected format from .firebasestorage.app
+    messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+    appId: process.env.REACT_APP_APP_ID
+  };
 
-if (providedFirebaseConfigString && providedInitialAuthToken && providedInitialAuthToken.trim() !== "") {
-    try {
-        effectiveFirebaseConfig = JSON.parse(providedFirebaseConfigString);
-        useProvidedConfig = true; // Flag that we are using the Canvas-provided config
-        console.log("Using Canvas-provided Firebase config for custom token auth. Project ID:", effectiveFirebaseConfig.projectId);
-    } catch (e) {
-        console.error("Failed to parse __firebase_config. Falling back to default config and anonymous sign-in.", e);
-        effectiveFirebaseConfig = defaultFirebaseConfig;
-        console.log("Fallback: Initializing with default Firebase config for anonymous sign-in. Project ID:", effectiveFirebaseConfig.projectId);
-    }
-} else {
-    effectiveFirebaseConfig = defaultFirebaseConfig;
-    if (providedInitialAuthToken && providedInitialAuthToken.trim() !== "") {
-        console.warn("An initial auth token was provided, but __firebase_config was missing or empty. Defaulting to anonymous sign-in with the hardcoded config. This might lead to auth issues if the token was intended for a different project.");
-    }
-    console.log("Initializing with default Firebase config for anonymous sign-in. Project ID:", effectiveFirebaseConfig.projectId);
-}
+  effectiveFirebaseConfig = defaultFirebaseConfig;
 
 try {
     app = initializeApp(effectiveFirebaseConfig);
@@ -80,8 +60,7 @@ try {
     // The App component will show an error message if `auth` or `db` is null/undefined due to this.
 }
 
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
+const appId = 'geminijoust-app';
 
 // --- Gemini API Configuration ---
 const GEMINI_API_KEY = ""; // Provided by the platform, leave empty
@@ -982,21 +961,10 @@ function App() {
             } else {
                 // No current user, attempt sign-in
                 try {
-                    if (useProvidedConfig && providedInitialAuthToken && providedInitialAuthToken.trim() !== "") {
-                        console.log("Attempting signInWithCustomToken with project:", effectiveFirebaseConfig?.projectId || "Unknown (config error)");
-                        await signInWithCustomToken(auth, providedInitialAuthToken);
-                        // onAuthStateChanged will run again. Do not set isAuthLoading false here.
-                    } else {
-                        console.log("Attempting signInAnonymously with project:", effectiveFirebaseConfig?.projectId || "Unknown (config error)");
-                        await signInAnonymously(auth);
-                        // onAuthStateChanged will run again. Do not set isAuthLoading false here.
-                    }
+                    await signInAnonymously(auth);
                 } catch (err) {
                     console.error("Error during sign-in attempt:", err);
                     let specificError = `Failed to sign in: ${err.message}.`;
-                    if (useProvidedConfig && err.code === 'auth/custom-token-mismatch') {
-                         specificError = `Failed to sign in: Custom token mismatch. This usually means the __initial_auth_token is not valid for the Firebase project configured by __firebase_config (Project ID: ${effectiveFirebaseConfig?.projectId || 'unknown'}). Please check the Canvas environment.`;
-                    }
                     setAuthError(specificError);
                     setUser(null);
                     setIsAuthLoading(false); // Sign-in attempt failed, auth process complete for this cycle with an error.
@@ -1010,7 +978,7 @@ function App() {
         });
 
         return () => unsubscribe();
-    }, [useProvidedConfig, providedInitialAuthToken]); // Dependencies ensure this runs if the config strategy changes. `auth` is stable.
+    }, []); // Dependencies ensure this runs if the config strategy changes. `auth` is stable.
     
     // Listener for new debate rooms the current user is part of
     useEffect(() => {
