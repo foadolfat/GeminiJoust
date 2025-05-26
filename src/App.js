@@ -1,26 +1,24 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Removed useCallback
 import { initializeApp } from 'firebase/app';
 import { 
     getAuth, 
     signInAnonymously, 
-    onAuthStateChanged,
-    signInWithCustomToken
+    onAuthStateChanged
+    // Removed signInWithCustomToken as it's not used in local deployment
 } from 'firebase/auth';
 import { 
     getFirestore, 
     collection, 
     addDoc, 
     doc, 
-    setDoc, 
-    getDoc, 
-    getDocs, 
+    // Removed setDoc, getDoc, getDocs as they are not used
     onSnapshot, 
     query, 
     where, 
     updateDoc, 
     arrayUnion, 
     arrayRemove,
-    Timestamp,
+    // Removed Timestamp as it's not used
     serverTimestamp,
     writeBatch,
     runTransaction,
@@ -35,22 +33,34 @@ import {
 let app;
 let auth;
 let db;
-let effectiveFirebaseConfig; // To hold the config actually used for initialization
+let effectiveFirebaseConfig;
 
-
-// Default/hardcoded Firebase configuration (e.g., for local development or when Canvas environment variables are not set)
+// Default/hardcoded Firebase configuration for local deployment
+// It will read values from .env.local via process.env
 const defaultFirebaseConfig = {
-    apiKey: process.env.REACT_APP_API_KEY, // This is the user's provided config
-    authDomain: process.env.REACT_APP_AUTH_DOMAIN,
-    projectId: process.env.REACT_APP_PROJECT_ID,
-    storageBucket: process.env.REACT_APP_STORAGE_BUCKET, // Corrected format from .firebasestorage.app
-    messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
-    appId: process.env.REACT_APP_APP_ID
-  };
+  apiKey: process.env.REACT_APP_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID
+};
 
-  effectiveFirebaseConfig = defaultFirebaseConfig;
+effectiveFirebaseConfig = defaultFirebaseConfig;
+console.log("Initializing with Firebase config for local deployment. Project ID:", effectiveFirebaseConfig.projectId);
 
 try {
+    // Check if all required Firebase config keys are present
+    if (
+        !effectiveFirebaseConfig.apiKey ||
+        !effectiveFirebaseConfig.authDomain ||
+        !effectiveFirebaseConfig.projectId ||
+        !effectiveFirebaseConfig.storageBucket ||
+        !effectiveFirebaseConfig.messagingSenderId ||
+        !effectiveFirebaseConfig.appId
+    ) {
+        throw new Error("One or more Firebase config values are missing. Check your .env.local file and ensure all REACT_APP_... variables are set.");
+    }
     app = initializeApp(effectiveFirebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
@@ -60,10 +70,12 @@ try {
     // The App component will show an error message if `auth` or `db` is null/undefined due to this.
 }
 
+// Static appId for local deployment
 const appId = 'geminijoust-app';
 
+
 // --- Gemini API Configuration ---
-const GEMINI_API_KEY = ""; // Provided by the platform, leave empty
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_FALLACY_MODEL = "gemini-2.0-flash";
 const GEMINI_QA_MODEL = "gemini-2.0-flash";
 
@@ -84,6 +96,7 @@ async function callGeminiAPI(prompt, modelName) {
     const payload = { contents: chatHistory };
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
 
+
     try {
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -93,7 +106,7 @@ async function callGeminiAPI(prompt, modelName) {
         if (!response.ok) {
             const errorData = await response.json();
             console.error("Gemini API Error:", response.status, errorData);
-            return `Error: Gemini API request failed with status ${response.status}.`;
+            return `Error: Gemini API request failed with status ${response.status}. Details: ${JSON.stringify(errorData)}`;
         }
         const result = await response.json();
         if (result.candidates && result.candidates.length > 0 &&
@@ -139,32 +152,7 @@ const ErrorMessage = ({ message }) => (
     </div>
 );
 
-// --- Modal Component ---
-const Modal = ({ isOpen, onClose, title, children }) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-            <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-xl bg-white">
-                <div className="mt-3 text-center">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">{title}</h3>
-                    <div className="mt-2 px-7 py-3">
-                        {children}
-                    </div>
-                    <div className="items-center px-4 py-3">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
+// Modal component was removed as it was unused.
 
 // --- Header ---
 const Header = ({ user, onNavigate }) => {
@@ -196,7 +184,7 @@ const TopicCreateForm = ({ user }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!topicName.trim() || !user || !db) return; // Added !db check
+        if (!topicName.trim() || !user || !db) return; 
         setIsLoading(true);
         setError(null);
 
@@ -249,7 +237,7 @@ const TopicCreateForm = ({ user }) => {
                 </div>
                 <button
                     type="submit"
-                    disabled={isLoading || !topicName.trim() || !db} // Added !db check
+                    disabled={isLoading || !topicName.trim() || !db} 
                     className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                 >
                     {isLoading ? <LoadingSpinner text="Creating..." /> : 'Create Topic'}
@@ -265,7 +253,7 @@ const TopicItem = ({ topic, user, onJoinDebate }) => {
     const [error, setError] = useState(null);
 
     const handleSignalInterest = async () => {
-        if (!user || !topic.id || !db) return; // Added !db check
+        if (!user || !topic.id || !db) return; 
         setIsJoining(true);
         setError(null);
 
@@ -366,7 +354,7 @@ const TopicItem = ({ topic, user, onJoinDebate }) => {
             {error && <ErrorMessage message={error} />}
             <button
                 onClick={handleSignalInterest}
-                disabled={isJoining || (isUserInterested && topic.interestedUsers?.length === 1) || !db} // Added !db check
+                disabled={isJoining || (isUserInterested && topic.interestedUsers?.length === 1) || !db} 
                 className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400"
             >
                 {isJoining ? <LoadingSpinner text="Joining..." /> : (isUserInterested && topic.interestedUsers?.length === 1 ? 'Waiting for Partner...' : 'Signal Interest / Join Debate')}
@@ -501,7 +489,7 @@ const MessageInput = ({ debateRoom, user, onSendMessage }) => {
 
 
     const handleSend = async () => {
-        if (!canSendMessage || isSending || !db) return; // Added !db check
+        if (!canSendMessage || isSending || !db) return; 
 
         setIsSending(true);
         setError(null);
@@ -551,11 +539,11 @@ const MessageInput = ({ debateRoom, user, onSendMessage }) => {
                     placeholder={debateRoom.turn === user.uid ? "Your turn. Type your message..." : "Waiting for opponent..."}
                     rows="3"
                     className="flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                    disabled={isSending || debateRoom.turn !== user.uid || wordsUsedTotal >= MAX_WORDS_PER_DEBATE_TOTAL || currentUserInfo?.hasExited || !db} // Added !db check
+                    disabled={isSending || debateRoom.turn !== user.uid || wordsUsedTotal >= MAX_WORDS_PER_DEBATE_TOTAL || currentUserInfo?.hasExited || !db} 
                 />
                 <button
                     onClick={handleSend}
-                    disabled={!canSendMessage || isSending || !db} // Added !db check
+                    disabled={!canSendMessage || isSending || !db} 
                     className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150"
                 >
                     {isSending ? 'Sending...' : 'Send'}
@@ -627,7 +615,7 @@ const DebateRoomView = ({ roomId, user, onExitDebate }) => {
     }, [roomId]);
 
     const addGeminiMessage = async (text, isFallacyAlert = false, isGeminiResponse = false) => {
-        if (!roomId || !text || !db) return; // Added !db check
+        if (!roomId || !text || !db) return; 
         try {
             await addDoc(collection(db, messagesCollectionPath(roomId)), {
                 senderId: 'gemini',
@@ -642,7 +630,7 @@ const DebateRoomView = ({ roomId, user, onExitDebate }) => {
     };
 
     const handleSendMessage = async (text, wordCount) => {
-        if (!user || !debateRoom || !text.trim() || debateRoom.status !== 'active' || debateRoom.turn !== user.uid || !db) return; // Added !db check
+        if (!user || !debateRoom || !text.trim() || debateRoom.status !== 'active' || debateRoom.turn !== user.uid || !db) return; 
         
         setIsProcessingGemini(true); 
         const roomRef = doc(db, debateRoomDocPath(roomId));
@@ -667,17 +655,12 @@ const DebateRoomView = ({ roomId, user, onExitDebate }) => {
                 turn: debateRoom.participants.find(pId => pId !== user.uid) 
             };
             
-            // This status update logic might need refinement based on exact desired behavior
             const otherParticipantId = debateRoom.participants.find(p => p !== user.uid);
             const otherParticipantInfo = debateRoom.participantInfo[otherParticipantId];
             if ( (newWordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL && otherParticipantInfo?.wordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL) ||
                  (newWordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL && otherParticipantInfo?.hasExited) ||
                  (otherParticipantInfo?.wordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL && debateRoom.participantInfo[user.uid]?.hasExited) ) {
                 participantUpdate.status = 'concluded_word_limit';
-            } else if (newWordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL) {
-                // If only current user hit limit, but other hasn't and hasn't exited, status might change differently
-                // For now, this simplified logic sets it to concluded_word_limit if both hit, or one hits and other exited.
-                // The individual check for newWordsUsed >= MAX_WORDS_PER_DEBATE_TOTAL is handled by MessageInput UI.
             }
 
             batch.update(roomRef, participantUpdate);
@@ -709,14 +692,12 @@ const DebateRoomView = ({ roomId, user, onExitDebate }) => {
     };
     
     const handleUserExit = async () => {
-        if (!user || !debateRoom || !debateRoom.id || !db) return; // Added !db check
+        if (!user || !debateRoom || !debateRoom.id || !db) return; 
         
-        // Replace window.confirm with a custom modal if possible, for now it's a placeholder
-        const confirmation = true; // Assuming user confirms via a modal that would set this. For now, auto-true.
-        // const confirmation = window.confirm("Are you sure you want to exit this debate? This cannot be undone.");
+        const confirmation = true; 
         if (!confirmation) return;
 
-        setIsLoading(true); // Consider a different loading state like isExiting
+        setIsLoading(true); 
         const roomRef = doc(db, debateRoomDocPath(debateRoom.id));
         try {
             const updates = {
@@ -762,7 +743,7 @@ const DebateRoomView = ({ roomId, user, onExitDebate }) => {
                     <h2 className="text-2xl font-bold text-gray-800">{debateRoom.topicName}</h2>
                     <button 
                         onClick={handleUserExit}
-                        disabled={isLoading || currentUserInfo?.hasExited || !db} // Added !db check
+                        disabled={isLoading || currentUserInfo?.hasExited || !db} 
                         className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-300"
                     >
                         Exit Debate
@@ -874,7 +855,7 @@ const ViewPastDebateView = ({ debateId, onBack }) => {
         }, (err) => {
             console.error("Error fetching past debate room:", err);
             setError("Failed to load past debate room details.");
-            setIsLoading(false); // Set loading false on error here too
+            setIsLoading(false); 
         });
 
         const q = query(collection(db, messagesCollectionPath(debateId)));
@@ -900,7 +881,7 @@ const ViewPastDebateView = ({ debateId, onBack }) => {
 
     if (isLoading) return <LoadingSpinner text="Loading Past Debate..." />;
     if (error) return <ErrorMessage message={error} />;
-    if (!debateRoom && !isLoading) return <div className="p-8 text-center">Past debate not found.</div>; // Check !isLoading
+    if (!debateRoom && !isLoading) return <div className="p-8 text-center">Past debate not found.</div>; 
     
     return (
         <div className="container mx-auto px-4 py-8">
@@ -910,7 +891,7 @@ const ViewPastDebateView = ({ debateId, onBack }) => {
             >
                 &larr; Back to Past Debates
             </button>
-            {debateRoom && ( // Render only if debateRoom is loaded
+            {debateRoom && ( 
                 <>
                     <div className="mb-4 p-4 bg-white shadow-lg rounded-lg border border-gray-200">
                         <h2 className="text-2xl font-bold text-gray-800">{debateRoom.topicName}</h2>
@@ -946,9 +927,9 @@ function App() {
     const [authError, setAuthError] = useState(null);
     const [globalError, setGlobalError] = useState(null); 
 
-    // Firebase Auth Listener
+    // Firebase Auth Listener for local deployment (anonymous sign-in only)
     useEffect(() => {
-        if (!auth) { // auth might be undefined if initializeApp failed
+        if (!auth) { 
             setAuthError("Firebase Auth is not initialized. App cannot function.");
             setIsAuthLoading(false);
             return;
@@ -957,28 +938,28 @@ function App() {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
-                setIsAuthLoading(false); // User is set, auth process complete for this cycle
+                setIsAuthLoading(false); 
             } else {
-                // No current user, attempt sign-in
                 try {
+                    console.log("Attempting signInAnonymously with project:", effectiveFirebaseConfig?.projectId || "Unknown (config error)");
                     await signInAnonymously(auth);
+                    // onAuthStateChanged will run again with the new user.
                 } catch (err) {
-                    console.error("Error during sign-in attempt:", err);
-                    let specificError = `Failed to sign in: ${err.message}.`;
-                    setAuthError(specificError);
+                    console.error("Error during signInAnonymously attempt:", err);
+                    setAuthError(`Failed to sign in anonymously: ${err.message}.`);
                     setUser(null);
-                    setIsAuthLoading(false); // Sign-in attempt failed, auth process complete for this cycle with an error.
+                    setIsAuthLoading(false); 
                 }
             }
-        }, (error) => { // This is for errors in the listener itself, not sign-in attempts
+        }, (error) => { 
             console.error("Auth state listener error:", error);
             setAuthError("Critical error with authentication listener.");
             setUser(null);
-            setIsAuthLoading(false); // Listener itself errored, auth process complete for this cycle with an error.
+            setIsAuthLoading(false); 
         });
 
         return () => unsubscribe();
-    }, []); // Dependencies ensure this runs if the config strategy changes. `auth` is stable.
+    }, []); // Empty dependency array: runs once on mount. `auth` is stable.
     
     // Listener for new debate rooms the current user is part of
     useEffect(() => {
@@ -1005,7 +986,7 @@ function App() {
         });
 
         return () => unsubscribe();
-    }, [user, db, activeDebateRoomId]); // Added db to dependencies
+    }, [user, activeDebateRoomId]); // db removed from deps as it's stable after init
 
 
     const handleNavigate = (view) => {
@@ -1044,16 +1025,16 @@ function App() {
     if (isAuthLoading) {
         return <div className="h-screen flex items-center justify-center bg-gray-100"><LoadingSpinner text="Authenticating..." /></div>;
     }
-    // If Firebase itself failed to initialize (auth or db is null/undefined)
+    
     if (!auth || !db) {
          return (
             <div className="h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
-                <ErrorMessage message={authError || "Firebase services (Auth or Firestore) failed to initialize. The application cannot function."} />
-                <p className="mt-4 text-gray-700">Please check the console for errors and ensure Firebase is configured correctly.</p>
+                <ErrorMessage message={authError || "Firebase services (Auth or Firestore) failed to initialize. The application cannot function. Check .env.local and console."} />
+                <p className="mt-4 text-gray-700">Please check the console for errors and ensure Firebase is configured correctly in your .env.local file.</p>
             </div>
         );
     }
-    // If auth initialized but sign-in failed and no user is set
+    
     if (authError && !user) { 
          return (
             <div className="h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
